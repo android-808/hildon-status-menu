@@ -53,6 +53,8 @@ else
     CFLAGS="$CFLAGS -Wall -Wmissing-prototypes -Wmissing-declarations -Werror -Wno-format-extra-args -DG_DISABLE_CAST_CHECKS -DG_DEBUG_DISABLE"
 fi
 
+CFLAGS="$CFLAGS -mthumb"
+
 AC_SUBST(CFLAGS)
 
 #++++++++++++
