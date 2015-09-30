@@ -36,8 +36,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <gconf/gconf-client.h>
-
 #include "hd-status-menu.h"
 #include "hd-status-menu-box.h"
 #include "hd-status-menu-config.h"
@@ -65,11 +63,11 @@
 #define DSME_SHUTDOWN_SIGNAL_NAME "shutdown_ind"
 
 #define NUMBER_OF_ROWS_GCONF_DIR "/apps/osso/hildon-status-menu/view"
-#define NUMBER_OF_ROWS_GCONF_KEY NUMBER_OF_ROWS_GCONF_DIR "/number_of_rows"
-#define NUMBER_OF_ROWS_PORTRAIT_GCONF_KEY NUMBER_OF_ROWS_GCONF_DIR "/number_of_rows_portrait"
+#define NUMBER_OF_ROWS_GSETTING_KEY "number-of-rows"
+#define NUMBER_OF_ROWS_PORTRAIT_GSETTING_KEY "number-of-rows-portrait"
 
-#define NUMBER_OF_ROWS gconf_client_get_int (priv->gconf_client, NUMBER_OF_ROWS_GCONF_KEY, NULL)
-#define NUMBER_OF_ROWS_PORTRAIT gconf_client_get_int (priv->gconf_client, NUMBER_OF_ROWS_PORTRAIT_GCONF_KEY, NULL)
+#define NUMBER_OF_ROWS g_settings_get_int (priv->settings, NUMBER_OF_ROWS_GSETTING_KEY)
+#define NUMBER_OF_ROWS_PORTRAIT g_settings_get_int (priv->settings, NUMBER_OF_ROWS_PORTRAIT_GSETTING_KEY)
 
 enum
 {
@@ -84,7 +82,7 @@ struct _HDStatusMenuPrivate
 
   HDPluginManager *plugin_manager;
 
-  GConfClient     *gconf_client;
+  GSettings       *settings;
 
   gboolean         pressed_outside;
 
@@ -103,24 +101,18 @@ notify_visible_items_cb (HDStatusMenu *status_menu)
   int rows = NUMBER_OF_ROWS;
   int rows_portrait = NUMBER_OF_ROWS_PORTRAIT;
 
-  /* If gconf default to 0 or the user sets the value to a negative integer
-     use a hardcoded value, then save that in gconf) */
+  /* If gsettings default to 0 or the user sets the value to a negative integer
+     use a hardcoded value, then save that in gsettings) */
   if (rows <= 0)
     {
-      GConfValue *value = gconf_value_new (GCONF_VALUE_INT);
       rows = 6;
-      gconf_value_set_int (value, rows);
-      gconf_client_set (priv->gconf_client, NUMBER_OF_ROWS_GCONF_KEY, value, NULL);
-      gconf_value_free (value);
+      g_settings_set_int (priv->settings, NUMBER_OF_ROWS_GSETTING_KEY, rows);
     }
 
   if (rows_portrait <= 0)
     {
-      GConfValue *value = gconf_value_new (GCONF_VALUE_INT);
       rows_portrait = 8;
-      gconf_value_set_int (value, rows_portrait);
-      gconf_client_set (priv->gconf_client, NUMBER_OF_ROWS_PORTRAIT_GCONF_KEY, value, NULL);
-      gconf_value_free (value);
+      g_settings_set_int (priv->settings, NUMBER_OF_ROWS_PORTRAIT_GSETTING_KEY, rows_portrait);
     }
 
   g_object_get (priv->box,
@@ -158,11 +150,11 @@ hd_status_menu_dbus_handler (DBusConnection *conn,
 }
 
 static void
-hd_status_menu_on_gconf_value_changed (GConfClient *client G_GNUC_UNUSED,
-                                       guint cnxn_id  G_GNUC_UNUSED,
-                                       GConfEntry *entry  G_GNUC_UNUSED,
-                                       HDStatusMenu *status_menu)
+hd_status_menu_on_gsettings_value_changed (GSettings   * settings,
+                                           const gchar * key,
+                                           gpointer      user_data)
 {
+  HDStatusMenu* status_menu = user_data;
   HDStatusMenuPrivate *priv = HD_STATUS_MENU_GET_PRIVATE (status_menu);
   guint visible_items;
   int rows = NUMBER_OF_ROWS;
@@ -172,21 +164,16 @@ hd_status_menu_on_gconf_value_changed (GConfClient *client G_GNUC_UNUSED,
      use a hardcoded value, then save that in gconf) */
   if (rows <= 0)
     {
-      GConfValue *value = gconf_value_new (GCONF_VALUE_INT);
       rows = 6;
-      gconf_value_set_int (value, rows);
-      gconf_client_set (priv->gconf_client, NUMBER_OF_ROWS_GCONF_KEY, value, NULL);
-      gconf_value_free (value);
+      g_settings_set_int (priv->settings, NUMBER_OF_ROWS_GSETTING_KEY, rows);
     }
 
   if (rows_portrait <= 0)
     {
-      GConfValue *value = gconf_value_new (GCONF_VALUE_INT);
       rows_portrait = 8;
-      gconf_value_set_int (value, rows_portrait);
-      gconf_client_set (priv->gconf_client, NUMBER_OF_ROWS_PORTRAIT_GCONF_KEY, value, NULL);
-      gconf_value_free (value);
+      g_settings_set_int (priv->settings, NUMBER_OF_ROWS_PORTRAIT_GSETTING_KEY, rows_portrait);
     }
+
 
   g_object_get (priv->box,
                 "visible-items", &visible_items,
@@ -212,7 +199,6 @@ hd_status_menu_init (HDStatusMenu *status_menu)
   DBusConnection *sysbus;
   DBusError derror;
   HDStatusMenuPrivate *priv = HD_STATUS_MENU_GET_PRIVATE (status_menu);
-  GtkWidget *alignment; /* Used to center the pannable */
 
   /* Set priv member */
   status_menu->priv = priv;
@@ -235,18 +221,11 @@ hd_status_menu_init (HDStatusMenu *status_menu)
                                   NULL, NULL);
     }
 
-  /* Initialize GConfClient */
-  priv->gconf_client = gconf_client_get_default ();
+  /* Initialize GSettings */
+  priv->settings = g_settings_new("org.hildon.hildon-status-menu.view");
 
-  /* Listen to gconf value changes */
-  gconf_client_add_dir (priv->gconf_client, NUMBER_OF_ROWS_GCONF_DIR,
-                        GCONF_CLIENT_PRELOAD_NONE, NULL);
-  gconf_client_notify_add (priv->gconf_client, NUMBER_OF_ROWS_GCONF_KEY,
-                           (gpointer) hd_status_menu_on_gconf_value_changed,
-                           status_menu, NULL, NULL);
-  gconf_client_notify_add (priv->gconf_client, NUMBER_OF_ROWS_PORTRAIT_GCONF_KEY,
-                           (gpointer) hd_status_menu_on_gconf_value_changed,
-                           status_menu, NULL, NULL);
+  /* Listen to gsettings value changes */
+  g_signal_connect(G_OBJECT(priv->settings), "changed", G_CALLBACK(hd_status_menu_on_gsettings_value_changed), status_menu);
 
   /* Create widgets */
   priv->box = hd_status_menu_box_new ();
@@ -258,7 +237,6 @@ hd_status_menu_init (HDStatusMenu *status_menu)
   g_object_set (G_OBJECT (priv->pannable),
                 "hscrollbar-policy", GTK_POLICY_NEVER,
                 "vscrollbar-policy", GTK_POLICY_AUTOMATIC,
-                "mov-mode", HILDON_MOVEMENT_MODE_VERT,
                 NULL);
   /* Set the size request of the pannable area (it is automatically updated if
    * the number of visible items in the status menu box changed)
@@ -268,13 +246,12 @@ hd_status_menu_init (HDStatusMenu *status_menu)
                                STATUS_MENU_ITEM_HEIGHT);
   gtk_widget_show (priv->pannable);
 
-  alignment = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
-  gtk_widget_show (alignment);
+  gtk_widget_set_halign(priv->pannable, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(priv->pannable, GTK_ALIGN_CENTER);
 
   /* Pack containers */
   hildon_pannable_area_add_with_viewport (HILDON_PANNABLE_AREA (priv->pannable), priv->box); 
-  gtk_container_add (GTK_CONTAINER (alignment), priv->pannable);
-  gtk_container_add (GTK_CONTAINER (status_menu), alignment);
+  gtk_container_add (GTK_CONTAINER (status_menu), priv->pannable);
 
   g_signal_connect (status_menu, "delete-event",
                     G_CALLBACK (gtk_widget_hide_on_delete), NULL);
@@ -295,10 +272,9 @@ hd_status_menu_dispose (GObject *object)
       priv->plugin_manager = NULL;
     }
 
-  if (priv->gconf_client)
+  if (priv->settings)
     {
-      g_object_unref (priv->gconf_client);
-      priv->gconf_client = NULL;
+      g_object_unref (priv->settings);
     }
 
   G_OBJECT_CLASS (hd_status_menu_parent_class)->dispose (object);
@@ -483,17 +459,17 @@ hd_status_menu_realize (GtkWidget *widget)
   GTK_WIDGET_CLASS (hd_status_menu_parent_class)->realize (widget);
 
   /* Use only a border as decoration */
-  gdk_window_set_decorations (widget->window, GDK_DECOR_BORDER);
+  gdk_window_set_decorations (gtk_widget_get_window(widget), GDK_DECOR_BORDER);
 
   /* Set the _NET_WM_WINDOW_TYPE property to _HILDON_WM_WINDOW_TYPE_STATUS_MENU */
-  display = gdk_drawable_get_display (widget->window);
+  display = gdk_window_get_display (gtk_widget_get_window(widget));
   atom = gdk_x11_get_xatom_by_name_for_display (display,
                                                 "_NET_WM_WINDOW_TYPE");
   wm_type = gdk_x11_get_xatom_by_name_for_display (display,
                                                    "_HILDON_WM_WINDOW_TYPE_STATUS_MENU");
 
-  XChangeProperty (GDK_WINDOW_XDISPLAY (widget->window),
-                   GDK_WINDOW_XID (widget->window),
+  XChangeProperty (GDK_WINDOW_XDISPLAY (gtk_widget_get_window(widget)),
+                   GDK_WINDOW_XID (gtk_widget_get_window(widget)),
                    atom, XA_ATOM, 32, PropModeReplace,
                    (unsigned char *)&wm_type, 1);
 }
@@ -521,51 +497,24 @@ hd_status_menu_map (GtkWidget *widget)
 static void
 hd_status_menu_check_resize (GtkContainer *container)
 {
-  GtkWindow *window = GTK_WINDOW (container);
   GtkWidget *widget = GTK_WIDGET (container);
 
-  /* Handle a resize based on a configure notify event
-   *
-   * Assign size and position of the widget with a call to
-   * gtk_widget_size_allocate ().
-   */
-  if (window->configure_notify_received)
-    { 
-      GtkAllocation allocation;
-
-      window->configure_notify_received = FALSE;
-
-      /* gtk_window_configure_event() filled in widget->allocation */
-      allocation = widget->allocation;
-      gtk_widget_size_allocate (widget, &allocation);
-
-      gdk_window_process_updates (widget->window, TRUE);
-      
-      gdk_window_configure_finished (widget->window);
-
-      /* FIXME check if it is really sized the correct way
-       * (works with the hildon wm).
-       */
-      gtk_widget_queue_resize (widget);
-
-      return;
-    }
-
   /* Handle a resize based on a change in size request */
-  if (GTK_WIDGET_VISIBLE (container))
+  if (gtk_widget_is_visible (GTK_WIDGET (container)))
     {
       GtkRequisition req;
 
-      gtk_widget_size_request (widget, &req);
+      gtk_widget_get_preferred_size (widget, &req, NULL);
 
       /* Request the window manager to resize the window to
        * the required size (will result in a configure notify event
        * see above) */
-      gdk_window_resize (widget->window, req.width, req.height);
+      gdk_window_resize (gtk_widget_get_window(widget), req.width, req.height);
 
       /* Resize children (also if size not changed and so no
        * configure notify event is triggered) */
-      gtk_container_resize_children (GTK_CONTAINER (widget));
+      //gtk_container_resize_children (GTK_CONTAINER (widget));
+      gtk_widget_queue_resize(widget);
     }
 }
 

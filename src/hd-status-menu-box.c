@@ -137,7 +137,7 @@ hd_status_menu_box_remove (GtkContainer *container,
         {
           gboolean visible;
 
-          visible = GTK_WIDGET_VISIBLE (child);
+          visible = gtk_widget_is_visible (child);
 
           gtk_widget_unparent (child);
 
@@ -228,7 +228,7 @@ hd_status_menu_box_size_allocate (GtkWidget     *widget,
       HDStatusMenuBoxChild *info = c->data;
 
       /* ignore hidden widgets */
-      if (!GTK_WIDGET_VISIBLE (info->widget))
+      if (!gtk_widget_is_visible (info->widget))
         continue;
 
       child_allocation.x = allocation->x + border_width + (visible_children % priv->columns * child_allocation.width);
@@ -259,13 +259,13 @@ hd_status_menu_box_size_request (GtkWidget      *widget,
       HDStatusMenuBoxChild *info = c->data;
       GtkRequisition child_requisition;
 
-      if (!GTK_WIDGET_VISIBLE (info->widget))
+      if (!gtk_widget_is_visible (info->widget))
         continue;
 
       visible_children++;
 
       /* there are some widgets which need a size request */
-      gtk_widget_size_request (info->widget, &child_requisition);
+      gtk_widget_get_preferred_size (info->widget, &child_requisition, NULL);
     }
 
   /* Update ::visible-items property if required */
@@ -279,6 +279,30 @@ hd_status_menu_box_size_request (GtkWidget      *widget,
   requisition->width = 10; // 2 * ITEM_WIDTH + 2 * border_width;
   /* height is at least one row */
   requisition->height = MAX ((visible_children + (priv->columns - 1)) / priv->columns, 1) * ITEM_HEIGHT + 2 * border_width;
+}
+
+static void
+hd_status_menu_box_get_preferred_width (GtkWidget *widget,
+                                        gint      *minimal_width,
+                                        gint      *natural_width)
+{
+  GtkRequisition requisition;
+
+  hd_status_menu_box_size_request (widget, &requisition);
+
+  *minimal_width = *natural_width = requisition.width;
+}
+
+static void
+hd_status_menu_box_get_preferred_height (GtkWidget *widget,
+                                         gint      *minimal_height,
+                                         gint      *natural_height)
+{
+  GtkRequisition requisition;
+
+  hd_status_menu_box_size_request (widget, &requisition);
+
+  *minimal_height = *natural_height = requisition.height;
 }
 
 static void
@@ -299,7 +323,8 @@ hd_status_menu_box_class_init (HDStatusMenuBoxClass *klass)
   container_class->set_child_property = hd_status_menu_box_set_child_property;
 
   widget_class->size_allocate = hd_status_menu_box_size_allocate;
-  widget_class->size_request = hd_status_menu_box_size_request;
+  widget_class->get_preferred_width = hd_status_menu_box_get_preferred_width;
+  widget_class->get_preferred_height = hd_status_menu_box_get_preferred_height;
 
   g_object_class_install_property (object_class,
                                    PROP_VISIBLE_ITEMS,
@@ -326,7 +351,7 @@ hd_status_menu_box_class_init (HDStatusMenuBoxClass *klass)
 static void
 hd_status_menu_box_init (HDStatusMenuBox *box)
 {
-  GTK_WIDGET_SET_FLAGS (box, GTK_NO_WINDOW);
+  gtk_widget_set_has_window (GTK_WIDGET (box), FALSE);
   gtk_widget_set_redraw_on_allocate (GTK_WIDGET (box),
                                      TRUE);
 

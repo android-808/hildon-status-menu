@@ -113,8 +113,8 @@ initialize_root_window (HDDesktop *desktop)
 {
   HDDesktopPrivate *priv = desktop->priv;
 
-  priv->root_window = gdk_window_foreign_new_for_display (gdk_display_get_default (),
-                                                          gdk_x11_get_default_root_xwindow ());
+  priv->root_window = gdk_x11_window_foreign_new_for_display (gdk_display_get_default (),
+                                                              gdk_x11_get_default_root_xwindow ());
 
   gdk_window_set_events (priv->root_window,
                          gdk_window_get_events (priv->root_window) | GDK_PROPERTY_CHANGE_MASK);

@@ -82,7 +82,7 @@ struct _HDStatusAreaPrivate
 
   GtkWidget *clock_box;
 
-  GtkWidget *main_alignment;
+  GtkWidget *main_hbox;
 
   gboolean resize_after_map : 1;
   gboolean status_area_visible;
@@ -98,7 +98,7 @@ button_release_event_cb (GtkWidget      *widget,
   HDStatusAreaPrivate *priv = status_area->priv;
 
   gtk_widget_show (priv->status_menu);
-  if (!GTK_WIDGET_VISIBLE (priv->status_menu))
+  if (!gtk_widget_get_visible (priv->status_menu))
     /* Failed to show the status menu because it got deleted.
      * Make sure it doesn't retain the grab. */
     gtk_grab_remove (GTK_WIDGET (priv->status_menu));
@@ -113,8 +113,11 @@ is_widget_on_screen (GtkWidget *widget)
   gint x, y, width, height;
 
   window = gtk_widget_get_window (widget);
+  if (!window)
+    return FALSE;
+
   gdk_window_get_root_origin (window, &x, &y);
-  gdk_window_get_geometry (window, NULL, NULL, &width, &height, NULL);
+  gdk_window_get_geometry (window, NULL, NULL, &width, &height);
 
   /* the compositor moves obscured windows off the screen, so we can use
    * that to determine whether the status area is visible */
@@ -162,7 +165,7 @@ static void
 hd_status_area_init (HDStatusArea *status_area)
 {
   HDStatusAreaPrivate *priv = HD_STATUS_AREA_GET_PRIVATE (status_area);
-  GtkWidget *left_alignment, *main_hbox, *left_hbox, *special_hbox;
+  GtkWidget *left_hbox, *special_hbox;
   guint i;
 
   /* Set priv member */
@@ -187,26 +190,27 @@ hd_status_area_init (HDStatusArea *status_area)
   gtk_widget_set_app_paintable (GTK_WIDGET (status_area), TRUE);
   gtk_widget_set_size_request (GTK_WIDGET (status_area), -1, STATUS_AREA_HEIGHT);
 
-  priv->main_alignment = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
-  gtk_widget_show (priv->main_alignment);
+  priv->main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_widget_show (priv->main_hbox);
+  gtk_widget_set_halign(priv->main_hbox, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(priv->main_hbox, GTK_ALIGN_CENTER);
 
-  left_alignment = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
-  gtk_alignment_set_padding (GTK_ALIGNMENT (left_alignment),
-                             CUSTOM_MARGIN_10 - CUSTOM_MARGIN_9,
-                             CUSTOM_MARGIN_10 - CUSTOM_MARGIN_9,
-                             0, 0);
-  gtk_widget_show (left_alignment);
-
-  main_hbox = gtk_hbox_new (FALSE, 0);
-  gtk_widget_show (main_hbox);
-
-  left_hbox = gtk_hbox_new (FALSE, HILDON_MARGIN_DOUBLE);
+  left_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, HILDON_MARGIN_DOUBLE);
   gtk_widget_show (left_hbox);
+  gtk_widget_set_halign(left_hbox, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(left_hbox, GTK_ALIGN_CENTER);
+  gtk_widget_set_margin_top(left_hbox, CUSTOM_MARGIN_10 - CUSTOM_MARGIN_9);
+  gtk_widget_set_margin_bottom(left_hbox, CUSTOM_MARGIN_10 - CUSTOM_MARGIN_9);
 
-  special_hbox = gtk_hbox_new (FALSE, HILDON_MARGIN_HALF);
+  special_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, HILDON_MARGIN_HALF);
   gtk_widget_show (special_hbox);
+  gtk_widget_set_halign(special_hbox, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(special_hbox, GTK_ALIGN_CENTER);
 
-  priv->clock_box = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
+  //priv->clock_box = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
+  priv->clock_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);  // TODO: Not sure? Might be better alternative.
+  gtk_widget_set_halign(priv->clock_box, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(priv->clock_box, GTK_ALIGN_CENTER);
 /*  gtk_widget_set_size_request (priv->clock_box, SPECIAL_ICON_WIDTH * 2, STATUS_AREA_ICON_HEIGHT); */
   gtk_widget_show (priv->clock_box);
 
@@ -222,15 +226,13 @@ hd_status_area_init (HDStatusArea *status_area)
   gtk_widget_show (priv->icon_box);
 
   /* Pack widgets */
-  gtk_container_add (GTK_CONTAINER (status_area), priv->main_alignment);
-  gtk_container_add (GTK_CONTAINER (priv->main_alignment), main_hbox);
-  gtk_box_pack_start (GTK_BOX (main_hbox), left_alignment, FALSE, FALSE, 0);
-  gtk_container_add (GTK_CONTAINER (left_alignment), left_hbox);
+  gtk_container_add (GTK_CONTAINER (status_area), priv->main_hbox);
+  gtk_box_pack_start (GTK_BOX (priv->main_hbox), left_hbox, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (left_hbox), priv->clock_box, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (left_hbox), special_hbox, FALSE, FALSE, 0);
   for (i = 0; i < HD_STATUS_AREA_NUM_SPECIAL_ITEMS; i++)
     gtk_box_pack_start (GTK_BOX (special_hbox), priv->special_item_image[i], FALSE, FALSE, 0);
-  gtk_box_pack_start (GTK_BOX (main_hbox), priv->icon_box, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (priv->main_hbox), priv->icon_box, TRUE, TRUE, 0);
 
   /* Detect when the entire status area is moved off screen (this happens when a
    * program is full-screen) */
@@ -542,25 +544,15 @@ hd_status_area_set_property (GObject      *object,
 }
 
 static gboolean
-hd_status_area_expose_event (GtkWidget *widget,
-                             GdkEventExpose *event)
+hd_status_area_draw (GtkWidget *widget,
+                             cairo_t   *cr)
 {
-  cairo_t *cr;
-
-  /* Create cairo context */
-  cr = gdk_cairo_create (GDK_DRAWABLE (widget->window));
-  gdk_cairo_region (cr, event->region);
-  cairo_clip (cr);
-
   /* Draw transparent background */
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0);
   cairo_paint (cr);
 
-  cairo_destroy (cr);
-
-  return GTK_WIDGET_CLASS (hd_status_area_parent_class)->expose_event (widget,
-                                                                       event);
+  return GTK_WIDGET_CLASS (hd_status_area_parent_class)->draw (widget, cr);
 }
 
 static gboolean
@@ -585,23 +577,25 @@ update_alignemnt_padding (HDStatusArea *status_area)
   else
     left_right_padding = HILDON_MARGIN_DOUBLE;
 
-  gtk_alignment_set_padding (GTK_ALIGNMENT (priv->main_alignment),
-                             CUSTOM_MARGIN_9, CUSTOM_MARGIN_9,
-                             left_right_padding, left_right_padding);
+  gtk_widget_set_margin_top(priv->main_hbox, CUSTOM_MARGIN_9);
+  gtk_widget_set_margin_bottom(priv->main_hbox, CUSTOM_MARGIN_9);
+  gtk_widget_set_margin_start(priv->main_hbox, left_right_padding);
+  gtk_widget_set_margin_end(priv->main_hbox, left_right_padding);
 }
 
 static void
 hd_status_area_realize (GtkWidget *widget)
 {
   GdkScreen *screen;
+  GdkVisual *visual;
   GdkDisplay *display;
   Atom atom, wm_type;
-  GdkPixmap *pixmap;
-  cairo_t *cr;
+  //cairo_t *cr;
+  //cairo_surface_t *surface;
 
   screen = gtk_widget_get_screen (widget);
-  gtk_widget_set_colormap (widget,
-                           gdk_screen_get_rgba_colormap (screen));
+  visual = gdk_screen_get_rgba_visual (screen);
+  gtk_widget_set_visual (widget, visual);
 
   g_signal_connect_swapped (screen, "size-changed",
                             G_CALLBACK (update_alignemnt_padding),
@@ -614,30 +608,37 @@ hd_status_area_realize (GtkWidget *widget)
   GTK_WIDGET_CLASS (hd_status_area_parent_class)->realize (widget);
 
   /* Use only a border as decoration */
-  gdk_window_set_decorations (widget->window, 0);
+  gdk_window_set_decorations (gtk_widget_get_window(widget), 0);
 
   /* Set the _NET_WM_WINDOW_TYPE property to _HILDON_WM_WINDOW_TYPE_STATUS_AREA */
-  display = gdk_drawable_get_display (widget->window);
+  display = gdk_window_get_display (gtk_widget_get_window(widget));
   atom = gdk_x11_get_xatom_by_name_for_display (display,
                                                 "_NET_WM_WINDOW_TYPE");
   wm_type = gdk_x11_get_xatom_by_name_for_display (display,
                                                    "_HILDON_WM_WINDOW_TYPE_STATUS_AREA");
 
-  XChangeProperty (GDK_WINDOW_XDISPLAY (widget->window),
-                   GDK_WINDOW_XID (widget->window),
+  XChangeProperty (GDK_WINDOW_XDISPLAY (gtk_widget_get_window(widget)),
+                   GDK_WINDOW_XID (gtk_widget_get_window(widget)),
                    atom, XA_ATOM, 32, PropModeReplace,
                    (unsigned char *)&wm_type, 1);
 
-  /* Set background to transparent pixmap */
-  pixmap = gdk_pixmap_new (GDK_DRAWABLE (widget->window), 1, 1, -1);
-  cr = gdk_cairo_create (GDK_DRAWABLE (pixmap));
+  //TODO: Not sure if needed? May get away with just setting to GdkRGBA value.
+  /* Set background to transparent pattern */
+  /*surface = gdk_window_create_similar_surface (gtk_widget_get_window(widget),
+                                               CAIRO_CONTENT_COLOR_ALPHA,
+                                               1,
+                                               1);
+  cr = cairo_create (surface);
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0);
   cairo_paint (cr);
   cairo_destroy (cr);
 
-  gdk_window_set_back_pixmap (widget->window, pixmap, FALSE);
-  g_object_unref(pixmap);
+  gdk_window_set_back_pixmap (gtk_widget_get_window(widget), pixmap, FALSE);
+
+  g_object_unref(surface);*/
+  GdkRGBA transparent = { 0.0f, 0.0f, 0.0f, 0.0f };
+  gdk_window_set_background_rgba (gtk_widget_get_window(widget), &transparent);
 }
 
 static void
@@ -668,7 +669,7 @@ static void
 hd_status_area_check_resize (GtkContainer *container)
 {
   HDStatusAreaPrivate *priv = HD_STATUS_AREA (container)->priv;
-  GtkWindow *window = GTK_WINDOW (container);
+//  GtkWindow *window = GTK_WINDOW (container);
   GtkWidget *widget = GTK_WIDGET (container);
 
   /* Handle a resize based on a configure notify event
@@ -676,38 +677,36 @@ hd_status_area_check_resize (GtkContainer *container)
    * Assign size and position of the widget with a call to
    * gtk_widget_size_allocate ().
    */
-  if (window->configure_notify_received)
-    { 
-      GtkAllocation allocation;
-
-      window->configure_notify_received = FALSE;
-
-      /* gtk_window_configure_event() filled in widget->allocation */
-      allocation = widget->allocation;
-      gtk_widget_size_allocate (widget, &allocation);
-
-      gdk_window_process_updates (widget->window, TRUE);
-      
-      gdk_window_configure_finished (widget->window);
-
-      /* FIXME check if it is really sized the correct way
-       * (works with the hildon wm).
-       */
-      gtk_widget_queue_resize (widget);
-
-      return;
-    }
+//  if (window->configure_notify_received)
+//    { 
+//      GtkAllocation allocation;
+//
+//      window->configure_notify_received = FALSE;
+//
+//      /* gtk_window_configure_event() filled in widget->allocation */
+//      gtk_widget_get_allocation (widget, &allocation);
+//      gtk_widget_size_allocate (widget, &allocation);
+//
+//      gdk_window_process_updates (gtk_widget_get_window(widget), TRUE);
+//
+//      /* FIXME check if it is really sized the correct way
+//       * (works with the hildon wm).
+//       */
+//      gtk_widget_queue_resize (widget);
+//
+//      return;
+//    }
 
   /* Handle a resize based on a change in size request */
-  if (GTK_WIDGET_VISIBLE (container))
+  if (gtk_widget_is_visible (GTK_WIDGET(container)))
     {
       GtkRequisition req;
       gint width, height;
 
-      gtk_widget_size_request (widget, &req);
+      gtk_widget_get_preferred_size (widget, &req, NULL);
 
-      gdk_drawable_get_size (GDK_DRAWABLE (widget->window),
-                             &width, &height);
+      width = gdk_window_get_width (gtk_widget_get_window(widget));
+      height = gdk_window_get_height (gtk_widget_get_window(widget));
 
       if (priv->resize_after_map ||
           req.width != width || req.height != height)
@@ -717,12 +716,13 @@ hd_status_area_check_resize (GtkContainer *container)
           /* Request the window manager to resize the window to
            * the required size (will result in a configure notify event
            * see above) */
-          gdk_window_resize (widget->window, req.width, req.height);
+          gdk_window_resize (gtk_widget_get_window(widget), req.width, req.height);
         }
 
       /* Resize children (also if size not changed and so no
          configure notify event is triggered) */
-      gtk_container_resize_children (GTK_CONTAINER (widget));
+      //gtk_container_resize_children (GTK_CONTAINER (widget));
+      gtk_widget_queue_resize(widget);
     }
 }
 
@@ -744,7 +744,7 @@ hd_status_area_class_init (HDStatusAreaClass *klass)
   widget_class->realize = hd_status_area_realize;
   widget_class->unrealize = hd_status_area_unrealize;
   widget_class->map = hd_status_area_map;
-  widget_class->expose_event = hd_status_area_expose_event;
+  widget_class->draw = hd_status_area_draw;
 
   container_class->check_resize = hd_status_area_check_resize;
 

@@ -25,7 +25,6 @@
 #include <config.h>
 #endif
 
-#include <libgnomevfs/gnome-vfs.h>
 #include <libhildondesktop/libhildondesktop.h>
 #include <hildon/hildon.h>
 
@@ -113,8 +112,6 @@ main (int argc, char **argv)
   GtkWidget *status_area;
   HDPluginManager *plugin_manager;
 
-  if (!g_thread_supported ())
-    g_thread_init (NULL);
   setlocale (LC_ALL, "");
 
   /* Initialize Gtk+ */
@@ -122,9 +119,6 @@ main (int argc, char **argv)
 
   /* Initialize Hildon */
   hildon_init ();
-
-  /* Initialize GnomeVFS */
-  gnome_vfs_init ();
 
   /* Add handler for TERM and signals */
   signal (SIGTERM, signal_handler);

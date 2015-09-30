@@ -1,4 +1,4 @@
 debian/tmp/etc/hildon-desktop/status-menu.conf
 debian/tmp/etc/hildon-desktop/status-menu.plugins
 debian/tmp/usr/bin/hildon-status-menu
-src/hildon-status-menu-config.schemas	usr/share/gconf/schemas
+debian/tmp/usr/share/glib-2.0/schemas/org.hildon.hildon-status-menu.gschema.xml	usr/share/glib-2.0/schemas/

@@ -100,7 +100,7 @@ hd_status_area_box_remove (GtkContainer *container,
         {
           gboolean visible;
 
-          visible = GTK_WIDGET_VISIBLE (child);
+          visible = gtk_widget_is_visible (child);
 
           gtk_widget_unparent (child);
 
@@ -191,11 +191,11 @@ hd_status_area_box_size_allocate (GtkWidget     *widget,
       GtkRequisition child_requisition;
 
       /* ignore hidden widgets */
-      if (!GTK_WIDGET_VISIBLE (info->widget))
+      if (!gtk_widget_is_visible (info->widget))
         continue;
 
       /* there are some widgets which need a size request */
-      gtk_widget_size_request (info->widget, &child_requisition);
+      gtk_widget_get_preferred_size (info->widget, &child_requisition, NULL);
 
       child_allocation.x = allocation->x +
                            border_width +
@@ -257,11 +257,11 @@ hd_status_area_box_size_request (GtkWidget      *widget,
       HDStatusAreaBoxChild *info = c->data;
       GtkRequisition child_requisition;
 
-      if (!GTK_WIDGET_VISIBLE (info->widget))
+      if (!gtk_widget_is_visible (info->widget))
         continue;
 
       /* there are some widgets which need a size request */
-      gtk_widget_size_request (info->widget, &child_requisition);
+      gtk_widget_get_preferred_size (info->widget, &child_requisition, NULL);
 
       visible_children++;
     }
@@ -285,6 +285,30 @@ hd_status_area_box_size_request (GtkWidget      *widget,
                             2 * ITEM_HEIGHT +
                             SPACING;
     }
+}
+
+static void
+hd_status_area_box_get_preferred_width (GtkWidget *widget,
+                                        gint      *minimal_width,
+                                        gint      *natural_width)
+{
+  GtkRequisition requisition;
+
+  hd_status_area_box_size_request (widget, &requisition);
+
+  *minimal_width = *natural_width = requisition.width;
+}
+
+static void
+hd_status_area_box_get_preferred_height (GtkWidget *widget,
+                                         gint      *minimal_height,
+                                         gint      *natural_height)
+{
+  GtkRequisition requisition;
+
+  hd_status_area_box_size_request (widget, &requisition);
+
+  *minimal_height = *natural_height = requisition.height;
 }
 
 static void
@@ -327,7 +351,8 @@ hd_status_area_box_class_init (HDStatusAreaBoxClass *klass)
   container_class->set_child_property = hd_status_area_box_set_child_property;
 
   widget_class->size_allocate = hd_status_area_box_size_allocate;
-  widget_class->size_request = hd_status_area_box_size_request;
+  widget_class->get_preferred_width = hd_status_area_box_get_preferred_width;
+  widget_class->get_preferred_height = hd_status_area_box_get_preferred_height;
   widget_class->realize = hd_status_area_box_realize;
   widget_class->unrealize = hd_status_area_box_unrealize;
 
@@ -337,7 +362,7 @@ hd_status_area_box_class_init (HDStatusAreaBoxClass *klass)
 static void
 hd_status_area_box_init (HDStatusAreaBox *box)
 {
-  GTK_WIDGET_SET_FLAGS (box, GTK_NO_WINDOW);
+  gtk_widget_set_has_window(GTK_WIDGET(box), FALSE);
   gtk_widget_set_redraw_on_allocate (GTK_WIDGET (box),
                                      FALSE);
 
@@ -414,7 +439,7 @@ hd_status_area_box_reorder_child (HDStatusAreaBox *box,
                                                      info,
                                                      hd_status_area_box_cmp_priority);
               
-              if (GTK_WIDGET_VISIBLE (child) && GTK_WIDGET_VISIBLE (box))
+              if (gtk_widget_is_visible (child) && gtk_widget_is_visible (GTK_WIDGET(box)))
                 gtk_widget_queue_resize (child);
             }
 
