@@ -1,0 +1,15 @@
+<schemalist>
+  <schema id="org.hildon.hildon-status-menu" path="/org/hildon/hildon-status-menu/">
+    <child name="view" schema="org.hildon.hildon-status-menu.view"/>
+  </schema>
+  <schema id="org.hildon.hildon-status-menu.view" path="/org/hildon/hildon-status-menu/view/">
+    <key name="number-of-rows" type="i">
+      <default>6</default>
+      <summary>Set the number of rows to use in the status menu</summary>
+    </key>
+    <key name="number-of-rows-portrait" type="i">
+      <default>8</default>
+      <summary>Set the number of rows to use in the status menu in portrait mode</summary>
+    </key>
+  </schema>
+</schemalist>
