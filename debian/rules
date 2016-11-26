@@ -12,5 +12,5 @@ makebuilddir::
 	AUTOGEN_SUBDIR_MODE=1 NOCONFIGURE=yes ./autogen.sh
 
 binary-install/hildon-status-menu::
-	#dh_installxsession -u 'post 15'
+	dh_installxsession -u 'post 15'
 	#dh_maemolauncher

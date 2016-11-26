@@ -66,16 +66,16 @@ AC_SUBST(CFLAGS)
 # AC_DEFINE(GETTEXT_PACKAGE, ["maemo-af-desktop"], [Package name for gettext])
 
 PKG_CHECK_MODULES(HILDON,
-                  [hildon-1], 
-                  [AC_DEFINE(HAVE_LIBHILDON, [], [Whether libhildon-1 is present on the system])], 
-                  [PKG_CHECK_MODULES(HILDON, hildon-1 >= 2.1.4)])
+                  [hildon-3], 
+                  [AC_DEFINE(HAVE_LIBHILDON, [], [Whether libhildon-3 is present on the system])], 
+                  [PKG_CHECK_MODULES(HILDON, hildon-3 >= 2.1.4)])
 
 AC_SUBST(HILDON_LIBS)
 AC_SUBST(HILDON_CFLAGS)
 
 PKG_CHECK_MODULES(LIBHILDONDESKTOP,
-                  [libhildondesktop-1 >= 2.1.6],
-                  [AC_DEFINE(HAVE_LIBHILDONDESKTOP, [], [Whether libhildondesktop-1 is present on the system])], 
+                  [libhildondesktop-3 >= 2.1.6],
+                  [AC_DEFINE(HAVE_LIBHILDONDESKTOP, [], [Whether libhildondesktop-3 is present on the system])], 
                   [])
 
 AC_SUBST(LIBHILDONDESKTOP_LIBS)
